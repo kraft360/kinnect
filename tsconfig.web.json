@@ -1,0 +1,19 @@
+{
+	// Web app (browser) and shared code.
+	"compilerOptions": {
+		"target": "es2022",
+		"module": "es2022",
+		"moduleResolution": "bundler",
+		"lib": ["es2022", "dom", "dom.iterable"],
+		"types": ["svelte", "vite/client"],
+		"strict": true,
+		// Components without a <script lang="ts"> block are treated as JavaScript.
+		"allowJs": true,
+		"checkJs": true,
+		"noEmit": true,
+		"allowImportingTsExtensions": true,
+		"verbatimModuleSyntax": true,
+		"skipLibCheck": true
+	},
+	"include": ["src/web/**/*.ts", "src/web/**/*.svelte", "src/shared/**/*.ts"]
+}

@@ -1,0 +1,46 @@
+{
+  "name": "kinnect",
+  "version": "1.0.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kraft360/kinnect.git"
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "dev": "vite",
+    "deploy": "vite build && wrangler deploy",
+    "types": "wrangler types",
+    "vapid": "node scripts/gen-vapid.mjs",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "wrangler types && tsc && svelte-check --tsconfig ./tsconfig.web.json",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "operator": "node scripts/operator.ts"
+  },
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.63.1",
+    "@cloudflare/vitest-plugin": "^1.4.0",
+    "@sveltejs/vite-plugin-svelte": "^7.3.1",
+    "prettier": "^3.9.10",
+    "prettier-plugin-svelte": "^4.1.1",
+    "svelte": "^5.57.2",
+    "svelte-check": "^4.7.6",
+    "typescript": "^6.0.3",
+    "vite": "^8.3.4",
+    "vitest": "^4.1.11",
+    "wrangler": "^4.149.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.1": true,
+    "esbuild@0.28.2": true,
+    "workerd@1.20260815.1": true,
+    "workerd@1.20261006.1": true
+  }
+}

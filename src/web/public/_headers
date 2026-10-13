@@ -1,0 +1,11 @@
+# Security headers for the app's static files (Cloudflare static assets).
+# /api/* is answered by the Worker and doesn't get these.
+#
+# CSP: everything comes from this origin. img-src allows data: for the checkbox tick in app.css;
+# connect-src 'self' also covers the wss:// sync socket. frame-ancestors and X-Frame-Options stop
+# the app being embedded in another site (clickjacking on join and sign-out buttons).
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer

@@ -1,0 +1,13 @@
+{
+	"useTabs": true,
+	"printWidth": 100,
+	"plugins": ["prettier-plugin-svelte"],
+	"overrides": [
+		{ "files": "*.svelte", "options": { "parser": "svelte" } },
+		{
+			"files": ["package.json", "package-lock.json"],
+			"options": { "useTabs": false, "tabWidth": 2 }
+		},
+		{ "files": "*.jsonc", "options": { "trailingComma": "none" } }
+	]
+}

@@ -1,0 +1,15 @@
+version: 2
+updates:
+  # Opens a PR when a pinned GitHub Action has a new release (updates the SHA and the version comment).
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+  # Opens a PR when a package has a security advisory or a new release; minor and patch updates come as one PR.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]

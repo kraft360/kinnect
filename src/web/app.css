@@ -1,0 +1,598 @@
+/*
+ * Design system. Accessible defaults (NFR-2): large text, 48px tap targets,
+ * text colours at WCAG AA or better in both themes.
+ */
+:root {
+	--background: #f5f4f0;
+	--surface: #ffffff;
+	--surface-2: #efede7;
+	--field: #ffffff;
+	--text: #1c1f24;
+	--muted: #5f6570;
+	--border: #e3e0d8;
+	--accent: #0f766e;
+	--accent-text: #0f766e;
+	--on-accent: #ffffff;
+	--accent-soft: #dcf3ee;
+	--on-accent-soft: #0b5d56;
+	--header: linear-gradient(135deg, #0f766e, #115e59);
+	--danger: #b42318;
+	--danger-soft: #fdecea;
+	--warn: #8a4b06;
+	--warn-soft: #fdf1dc;
+	--success: #15803d;
+	--shadow: 0 1px 2px rgb(28 25 20 / 0.05), 0 6px 16px rgb(28 25 20 / 0.06);
+	--shadow-raised: 0 8px 24px rgb(15 118 110 / 0.3);
+	--radius: 16px;
+	--radius-sm: 10px;
+	--space: 16px;
+	--tap: 48px;
+	--nav-height: 64px;
+	color-scheme: light;
+	font:
+		17px/1.45 system-ui,
+		-apple-system,
+		"Segoe UI",
+		Roboto,
+		"Helvetica Neue",
+		sans-serif;
+	color: var(--text);
+	background: var(--background);
+	-webkit-tap-highlight-color: transparent;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		--background: #0e1014;
+		--surface: #181b21;
+		--surface-2: #22262e;
+		--field: #12151a;
+		--text: #eef0f3;
+		--muted: #a1a8b3;
+		--border: #2b3039;
+		--accent: #23a08e;
+		--accent-text: #5fd9c6;
+		--on-accent: #042824;
+		--accent-soft: #143a36;
+		--on-accent-soft: #8ce8d9;
+		--header: linear-gradient(135deg, #115e59, #0c3f3b);
+		--danger: #ff8a7a;
+		--danger-soft: #3a1714;
+		--warn: #f5c56b;
+		--warn-soft: #33270f;
+		--success: #6ee79a;
+		--shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+		--shadow-raised: 0 8px 24px rgb(0 0 0 / 0.5);
+		color-scheme: dark;
+	}
+}
+
+* {
+	box-sizing: border-box;
+}
+
+body {
+	margin: 0;
+}
+
+#app {
+	min-height: 100dvh;
+	display: flex;
+	flex-direction: column;
+}
+
+p {
+	margin: 0 0 8px;
+}
+
+/* Type */
+h2 {
+	font-size: 1.5rem;
+	line-height: 1.2;
+	font-weight: 700;
+	letter-spacing: -0.01em;
+	margin: 0;
+}
+
+h3 {
+	font-size: 1.05rem;
+	font-weight: 650;
+	margin: 0 0 8px;
+}
+
+.section-label {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	margin: 24px 4px 8px;
+	font-size: 0.78rem;
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--muted);
+}
+
+.section-label a,
+.section-label button {
+	text-transform: none;
+	letter-spacing: 0;
+	font-size: 0.9rem;
+}
+
+.muted {
+	color: var(--muted);
+}
+
+.small {
+	font-size: 0.88rem;
+}
+
+.error {
+	color: var(--danger);
+	font-weight: 600;
+}
+
+.warning {
+	color: var(--warn);
+	font-weight: 600;
+}
+
+a {
+	color: var(--accent-text);
+	text-decoration: none;
+	font-weight: 600;
+}
+
+/* Surfaces */
+.card {
+	background: var(--surface);
+	border-radius: var(--radius);
+	box-shadow: var(--shadow);
+	padding: var(--space);
+	margin-bottom: 12px;
+}
+
+@media (prefers-color-scheme: dark) {
+	.card {
+		border: 1px solid var(--border);
+	}
+}
+
+/* Task cards carry their label colour as a strip on the left (FR-4). */
+.task-card {
+	position: relative;
+	overflow: hidden;
+}
+.task-card[class*=" c-"]::before,
+.task-card.missed::before {
+	content: "";
+	position: absolute;
+	inset: 0 auto 0 0;
+	width: 4px;
+	background: var(--tag);
+}
+.task-card.missed {
+	--tag: var(--danger);
+}
+
+/* Callouts: notices that need attention. */
+.callout {
+	display: flex;
+	gap: 12px;
+	align-items: flex-start;
+	padding: 12px 14px;
+	border-radius: var(--radius);
+	background: var(--surface-2);
+	margin-bottom: 12px;
+}
+.callout > svg {
+	flex: none;
+	margin-top: 2px;
+}
+.callout .body {
+	flex: 1;
+	min-width: 0;
+}
+.callout p:last-child {
+	margin-bottom: 0;
+}
+.callout.danger {
+	background: var(--danger-soft);
+	color: var(--danger);
+}
+.callout.warn {
+	background: var(--warn-soft);
+	color: var(--warn);
+}
+.callout.info {
+	background: var(--accent-soft);
+	color: var(--on-accent-soft);
+}
+.callout.danger .body,
+.callout.warn .body,
+.callout.info .body {
+	color: var(--text);
+}
+.callout strong {
+	color: inherit;
+}
+
+/* Buttons: primary (default), secondary, danger, ghost. */
+button,
+.button {
+	font: inherit;
+	font-weight: 650;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	min-height: var(--tap);
+	padding: 0 20px;
+	border: 0;
+	border-radius: 999px;
+	background: var(--accent);
+	color: var(--on-accent);
+	text-decoration: none;
+	cursor: pointer;
+	transition:
+		transform 0.08s ease,
+		filter 0.15s ease,
+		background-color 0.15s ease;
+}
+button:active:not(:disabled),
+.button:active {
+	transform: scale(0.97);
+}
+button.secondary,
+.button.secondary {
+	background: var(--accent-soft);
+	color: var(--on-accent-soft);
+}
+button.danger,
+.button.danger {
+	background: var(--danger-soft);
+	color: var(--danger);
+}
+button.ghost,
+.button.ghost {
+	background: transparent;
+	color: var(--accent-text);
+	padding: 0 12px;
+}
+button.ghost.danger {
+	color: var(--danger);
+}
+button.link {
+	background: transparent;
+	color: var(--muted);
+	min-height: 40px;
+	padding: 0 4px;
+	font-weight: 500;
+	font-size: 0.9rem;
+}
+button.small,
+.button.small {
+	min-height: 40px;
+	padding: 0 14px;
+	font-size: 0.92rem;
+}
+button.icon-button {
+	width: var(--tap);
+	padding: 0;
+	background: transparent;
+	color: var(--muted);
+}
+button:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+.done-button {
+	width: 100%;
+	min-height: 56px;
+	font-size: 1.1rem;
+}
+.block {
+	width: 100%;
+}
+
+:focus-visible {
+	outline: 3px solid var(--accent);
+	outline-offset: 2px;
+}
+
+.actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-top: 12px;
+}
+
+/* Chips: optional parts of a form and filters. */
+.chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin: 4px 0 var(--space);
+}
+.chip {
+	min-height: 40px;
+	padding: 0 14px;
+	font-size: 0.92rem;
+	font-weight: 600;
+	background: var(--surface-2);
+	color: var(--text);
+	border: 1px solid var(--border);
+}
+.chip[aria-pressed="true"],
+.chip.active {
+	background: var(--accent-soft);
+	color: var(--on-accent-soft);
+	border-color: transparent;
+}
+
+/* Badges: short status words. */
+.badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 1px 8px;
+	border-radius: 999px;
+	font-size: 0.8rem;
+	font-weight: 700;
+	background: var(--surface-2);
+	color: var(--muted);
+	white-space: nowrap;
+	vertical-align: middle;
+}
+.badge.danger {
+	background: var(--danger-soft);
+	color: var(--danger);
+}
+.badge.accent {
+	background: var(--accent-soft);
+	color: var(--on-accent-soft);
+}
+.badge.warn {
+	background: var(--warn-soft);
+	color: var(--warn);
+}
+
+/* Forms */
+label {
+	display: block;
+	margin-bottom: 14px;
+	font-weight: 600;
+	font-size: 0.95rem;
+}
+
+input,
+select,
+textarea {
+	display: block;
+	width: 100%;
+	margin-top: 6px;
+	font: inherit;
+	font-weight: 400;
+	min-height: var(--tap);
+	padding: 0 14px;
+	border: 1px solid var(--border);
+	border-radius: var(--radius-sm);
+	background: var(--field);
+	color: var(--text);
+	transition: border-color 0.15s ease;
+}
+textarea {
+	padding: 10px 14px;
+	resize: vertical;
+}
+input:focus,
+select:focus,
+textarea:focus {
+	outline: none;
+	border-color: var(--accent);
+	box-shadow: 0 0 0 3px var(--accent-soft);
+}
+input::placeholder,
+textarea::placeholder {
+	color: var(--muted);
+	opacity: 0.8;
+}
+/* Rounded checkboxes with a drawn tick, the same in every browser. */
+input[type="checkbox"] {
+	appearance: none;
+	border: 2px solid var(--muted);
+	border-radius: 7px;
+	background: var(--field) center / 75% no-repeat;
+	cursor: pointer;
+	transition:
+		background-color 0.15s ease,
+		border-color 0.15s ease;
+}
+input[type="checkbox"]:checked {
+	border-color: var(--accent);
+	background-color: var(--accent);
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
+}
+@media (prefers-color-scheme: dark) {
+	input[type="checkbox"]:checked {
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23042824' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
+	}
+}
+input[type="checkbox"],
+input[type="radio"] {
+	display: inline-block;
+	width: 24px;
+	height: 24px;
+	min-height: 0;
+	margin: 0;
+	padding: 0;
+	flex: none;
+	accent-color: var(--accent);
+	box-shadow: none;
+}
+
+fieldset {
+	border: 1px solid var(--border);
+	border-radius: var(--radius-sm);
+	margin: 0 0 14px;
+	padding: 8px 14px 4px;
+}
+legend {
+	font-weight: 650;
+	font-size: 0.95rem;
+	padding: 0 6px;
+}
+
+/* A checkbox or radio with its text, as one large tap target. */
+.check {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	min-height: var(--tap);
+	margin: 0;
+	font-weight: 400;
+	font-size: 1rem;
+}
+
+details > summary {
+	min-height: var(--tap);
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-weight: 600;
+	cursor: pointer;
+	list-style: none;
+}
+details > summary::-webkit-details-marker {
+	display: none;
+}
+details > summary::after {
+	content: "";
+	width: 8px;
+	height: 8px;
+	margin-left: auto;
+	border-right: 2px solid var(--muted);
+	border-bottom: 2px solid var(--muted);
+	transform: rotate(45deg);
+	transition: transform 0.15s ease;
+}
+details[open] > summary::after {
+	transform: rotate(-135deg);
+}
+
+/* Lists */
+ul.list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+ul.list > li {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	min-height: var(--tap);
+	padding: 10px 0;
+	border-bottom: 1px solid var(--border);
+}
+
+ul.list > li:last-child {
+	border-bottom: 0;
+}
+
+/* A whole row that opens something. */
+a.row-link {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	flex: 1;
+	min-width: 0;
+	color: var(--text);
+	font-weight: 400;
+}
+
+/* Label tags (FR-4): a coloured dot plus the label text, readable in both themes. */
+.tag {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 1px 10px 1px 8px;
+	border-radius: 999px;
+	background: var(--surface-2);
+	color: var(--text);
+	font-size: 0.8rem;
+	font-weight: 600;
+	white-space: nowrap;
+	vertical-align: middle;
+}
+.tag::before,
+.dot {
+	content: "";
+	display: inline-block;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: var(--tag, var(--muted));
+	flex: none;
+}
+.c-teal {
+	--tag: #14b8a6;
+}
+.c-blue {
+	--tag: #3b82f6;
+}
+.c-purple {
+	--tag: #8b5cf6;
+}
+.c-pink {
+	--tag: #ec4899;
+}
+.c-red {
+	--tag: #ef4444;
+}
+.c-orange {
+	--tag: #f97316;
+}
+.c-green {
+	--tag: #22c55e;
+}
+.c-grey {
+	--tag: #8b939e;
+}
+
+/* Status dots: notifications working / off / not showing (FR-42). */
+.status-dot {
+	display: inline-block;
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	background: var(--success);
+	vertical-align: middle;
+	margin-right: 6px;
+}
+.status-dot.off {
+	background: var(--danger);
+}
+.status-dot.unconfirmed {
+	background: var(--warn);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	* {
+		transition: none !important;
+	}
+}
+
+/* Simple view (FR-34): bigger text, bigger Done buttons, roomier cards. */
+:root.simple {
+	font-size: 21px;
+}
+:root.simple .done-button {
+	min-height: 80px;
+	font-size: 1.4rem;
+}
+:root.simple .card {
+	padding: 20px;
+}
