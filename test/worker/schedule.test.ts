@@ -1,7 +1,8 @@
-import { runInDurableObject } from "cloudflare:test";
+import { env, runInDurableObject } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
-import { daysBetween, localParts, localToUtc } from "../../src/shared/time.ts";
+import { DAY_MS, daysBetween, localParts, localToUtc } from "../../src/shared/time.ts";
 import { materializeTask } from "../../src/worker/org/schedule.ts";
+import type { OrgDO } from "../../src/worker/org/org-do.ts";
 import type { TaskRow } from "../../src/worker/org/tasks.ts";
 import { dueIn, family, MIN, taskState } from "./family.ts";
 import { Client, op, sync, uuid } from "./helpers.ts";
@@ -743,5 +744,96 @@ describe("live updates from the scheduler", () => {
 		live.ws.close();
 		expect(message.type).toBe("changes");
 		expect(message.changes.at(-1).data.occurrences[0].status).toBe("missed");
+	});
+});
+
+describe("overdue jobs and a missing alarm", () => {
+	/** A family as migration 7 left it: its first purge job due at time 0. */
+	async function migratedFamily() {
+		const f = await family();
+		await runInDurableObject(f.stub, async (_instance, state) => {
+			state.storage.sql.exec("DELETE FROM scheduled_job WHERE kind = 'purge'");
+			state.storage.sql.exec(
+				"INSERT INTO scheduled_job (id, kind, fire_at) VALUES ('first-purge', 'purge', 0)",
+			);
+			await state.storage.deleteAlarm();
+		});
+		const alarm = () => runInDurableObject(f.stub, (_instance, state) => state.storage.getAlarm());
+		/** An alarm set to now fires at once; waits for it to run the overdue purge and re-arm. */
+		const firstPurgeRan = async () => {
+			for (let i = 0; i < 100; i++) {
+				const doneAt = await runInDurableObject(
+					f.stub,
+					(_instance, state) =>
+						state.storage.sql
+							.exec<{
+								done_at: number | null;
+							}>("SELECT done_at FROM scheduled_job WHERE id = 'first-purge'")
+							.toArray()[0]?.done_at ?? null,
+				);
+				const next = await alarm();
+				if (doneAt !== null && next !== null) return { doneAt, next };
+				await new Promise((resolve) => setTimeout(resolve, 20));
+			}
+			throw new Error("the overdue purge job never ran");
+		};
+		return { ...f, alarm, firstPurgeRan };
+	}
+
+	it("arms the alarm for now when a job is overdue, and the edit succeeds", async () => {
+		const f = await migratedFamily();
+		const id = uuid();
+		const created = await op(f.owner, { type: "task.create", id, title: "After the deploy" });
+		expect(created.status).toBe(200);
+		expect((await taskState(f.owner, id)).title).toBe("After the deploy");
+		// The alarm was set for now, so the overdue purge ran straight away and re-armed a day later.
+		const { doneAt, next } = await f.firstPurgeRan();
+		expect(next).toBe(doneAt + DAY_MS);
+	});
+
+	it("runs the overdue purge job on the next alarm and re-arms a day later", async () => {
+		const f = await migratedFamily();
+		const now = Date.now();
+		await f.run(now);
+		const purge = await runInDurableObject(f.stub, (_instance, state) =>
+			state.storage.sql
+				.exec<{ id: string; fire_at: number; done_at: number | null }>(
+					"SELECT id, fire_at, done_at FROM scheduled_job WHERE kind = 'purge' ORDER BY fire_at",
+				)
+				.toArray(),
+		);
+		expect(purge).toEqual([
+			{ id: "first-purge", fire_at: 0, done_at: now },
+			expect.objectContaining({ fire_at: now + DAY_MS, done_at: null }),
+		]);
+		expect(await f.alarm()).toBe(now + DAY_MS);
+	});
+
+	it("re-arms on wake when jobs are pending but the alarm was lost", async () => {
+		const f = await migratedFamily();
+		expect(await f.alarm()).toBeNull();
+		await runInDurableObject(f.stub, (instance: OrgDO) => instance.restoreAlarm(Date.now()));
+		const { doneAt, next } = await f.firstPurgeRan();
+		expect(next).toBe(doneAt + DAY_MS);
+	});
+
+	it("leaves the alarm alone when it's set, nothing is pending, or there's no family", async () => {
+		const f = await family();
+		const now = Date.now();
+		await runInDurableObject(f.stub, async (instance: OrgDO, state) => {
+			await state.storage.setAlarm(now + DAY_MS);
+			await instance.restoreAlarm(now);
+			expect(await state.storage.getAlarm()).toBe(now + DAY_MS);
+
+			state.storage.sql.exec("DELETE FROM scheduled_job");
+			await state.storage.deleteAlarm();
+			await instance.restoreAlarm(now);
+			expect(await state.storage.getAlarm()).toBeNull();
+		});
+		const empty = env.ORG.get(env.ORG.idFromName(uuid()));
+		await runInDurableObject(empty, async (instance: OrgDO, state) => {
+			await instance.restoreAlarm(now);
+			expect(await state.storage.getAlarm()).toBeNull();
+		});
 	});
 });

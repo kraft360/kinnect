@@ -119,6 +119,7 @@ export class OrgDO extends DurableObject<Env> {
 		this.sql = ctx.storage.sql;
 		ctx.blockConcurrencyWhile(async () => {
 			this.schemaVersion = migrate(ctx.storage, orgMigrations);
+			await this.restoreAlarm(Date.now());
 		});
 		// Keep-alive pings are answered without waking the object from hibernation.
 		ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong"));
@@ -258,11 +259,23 @@ export class OrgDO extends DurableObject<Env> {
 		await this.armAlarm(now);
 	}
 
-	/** Sets the alarm to the earliest pending job, or to now while pushes are waiting. */
+	/**
+	 * Run on every wake: if jobs are pending but no alarm is set (lost to an earlier failure),
+	 * arms it so they still run, late rather than never. One getAlarm() when all is well.
+	 */
+	async restoreAlarm(now: number): Promise<void> {
+		if ((await this.ctx.storage.getAlarm()) !== null || !getOrganization(this.sql)) return;
+		if (nextJobAt(this.sql) !== null) await this.armAlarm(now);
+	}
+
+	/**
+	 * Sets the alarm to the earliest pending job, or to now while pushes are waiting. Never in
+	 * the past: an overdue job (such as migration 7's first purge, due at 0) runs straight away.
+	 */
 	private async armAlarm(now: number): Promise<void> {
 		const queued = this.sql.exec<{ n: number }>("SELECT COUNT(*) AS n FROM push_queue").one().n > 0;
 		const nextJob = nextJobAt(this.sql);
-		const next = queued ? now : nextJob;
+		const next = queued ? now : nextJob === null ? null : Math.max(nextJob, now);
 		if (next === null) {
 			if ((await this.ctx.storage.getAlarm()) !== null) await this.ctx.storage.deleteAlarm();
 			return;
