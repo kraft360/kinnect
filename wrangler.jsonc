@@ -20,6 +20,11 @@
 		{ "tag": "v2", "new_sqlite_classes": ["DirectoryDO"] }
 	],
 	"vars": {
+		// Daily purge (requirements 8.3). Days to keep family history: finished occurrences with
+		// their alerts and ticks, and cleared sub-tasks. Minimum 7.
+		"PURGE_HISTORY_DAYS": "90",
+		// Days to keep internal rows: scheduler jobs that have run and the live-sync change log. Minimum 1.
+		"PURGE_SYSTEM_DAYS": "10",
 		// Set by `npm run vapid`. Public key only; the private key is a secret.
 		"VAPID_PUBLIC_KEY": "BGK8yALBzJLeKkz4uTdi89SGUGdSi3VHiRFmMX9gWbCR_6bMLSv_MXKLs0umziyPm1HitofKeFRAyfgT4rVMX3Y"
 	},

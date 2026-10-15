@@ -4,8 +4,6 @@ import { toMember, type MemberRow } from "./accounts.ts";
 import { listTeams } from "./teams.ts";
 import { listVisibleTasks } from "./tasks.ts";
 
-const RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
-
 /** A change plus who may see it: teamId null means the whole family. */
 export interface StoredChange {
 	change: Change;
@@ -81,7 +79,10 @@ export function currentVersion(sql: SqlStorage): number {
 	);
 }
 
-/** Changes after `version` that the audience may see, or null if the log no longer covers that range. */
+/**
+ * Changes after `version` that the audience may see, or null when a snapshot is better: the log
+ * no longer covers that range, or there are more changes than tasks (FR-52).
+ */
 export function changesSince(
 	sql: SqlStorage,
 	version: number,
@@ -92,6 +93,10 @@ export function changesSince(
 	if (version === current) return [];
 	const oldest = sql.exec<{ v: number | null }>("SELECT MIN(version) AS v FROM change_log").one().v;
 	if (oldest === null || version < oldest - 1) return null;
+	// Each change carries a whole task, so past this point a snapshot is smaller. Versions are
+	// consecutive, so the count is a subtraction; members who see fewer tasks switch a little early.
+	const tasks = sql.exec<{ n: number }>("SELECT COUNT(*) AS n FROM task").one().n;
+	if (current - version > tasks) return null;
 	return sql
 		.exec<{
 			version: number;
@@ -155,8 +160,4 @@ export function snapshot(sql: SqlStorage, member: MemberRow): Snapshot {
 		teams: listTeams(sql, audience.all ? undefined : member.id),
 		members,
 	};
-}
-
-export function pruneChangeLog(sql: SqlStorage, now: number): void {
-	sql.exec("DELETE FROM change_log WHERE at < ?", now - RETENTION_MS);
 }

@@ -51,7 +51,9 @@ npm run deploy                         # vite build + wrangler deploy
 **Rolling back**
 - `npx wrangler rollback` returns to the previous Worker version.
 - It does **not** undo a schema migration. Older code refuses to open a database newer than itself (the family's requests fail with an error) rather than corrupt it.
-- So for a release with a migration, fix forward instead of rolling back.
+- So for a release with a migration, fix forward instead of rolling back: deploy the previous code with the new migration added, or a fix.
+- If the migration itself fails, it is rolled back and that family's database stays at the old version, so `npx wrangler rollback` is safe in that case.
+- No downtime is needed: each family migrates on its own the first time it starts after the deploy, and its requests wait the few milliseconds that takes.
 
 ## Backups and recovery
 
@@ -68,6 +70,12 @@ npm run deploy                         # vite build + wrangler deploy
   ```
 
   Any other member who lost their phone just needs a new "add device" link from an admin.
+
+- **Retention.** Once a day each family deletes old rows (requirements 8.3), controlled by two settings in `wrangler.jsonc`:
+  - `PURGE_HISTORY_DAYS` (default 90, minimum 7): finished reminders and their history, and cleared checklist items.
+  - `PURGE_SYSTEM_DAYS` (default 10, minimum 1): internal scheduler and live-sync rows. Keep it long enough to look into an issue reported after a weekend.
+
+  Tasks, members, households, invites and devices are never deleted. To change a setting, edit it and deploy. Download an export first if you want to keep older history. Each purge logs what it deleted (see Monitoring).
 
 ## Free-plan limits that matter
 

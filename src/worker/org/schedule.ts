@@ -28,7 +28,7 @@ export type OccurrenceRow = {
 	note: string | null;
 };
 
-type JobKind = "advance" | "due" | "second" | "missed" | "resend" | "materialize";
+type JobKind = "advance" | "due" | "second" | "missed" | "resend" | "materialize" | "purge";
 
 type JobRow = {
 	id: string;
@@ -158,7 +158,12 @@ export function materializeTask(
 	return created;
 }
 
-function deleteOccurrences(sql: SqlStorage, where: string, ...params: (string | number)[]): void {
+/** Deletes the matching occurrences with their jobs, alerts and ticks; returns how many. */
+export function deleteOccurrences(
+	sql: SqlStorage,
+	where: string,
+	...params: (string | number)[]
+): number {
 	const ids = sql
 		.exec<{ id: string }>(`SELECT id FROM occurrence WHERE ${where}`, ...params)
 		.toArray()
@@ -169,6 +174,7 @@ function deleteOccurrences(sql: SqlStorage, where: string, ...params: (string | 
 		sql.exec("DELETE FROM occurrence_tick WHERE occurrence_id = ?", id);
 		sql.exec("DELETE FROM occurrence WHERE id = ?", id);
 	}
+	return ids.length;
 }
 
 /** Stops all pending reminders for a task's occurrences. */

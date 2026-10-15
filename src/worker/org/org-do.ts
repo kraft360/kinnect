@@ -27,6 +27,7 @@ import { migrate } from "../db/migrate.ts";
 import { DIRECTORY_NAME } from "../directory/directory-do.ts";
 import { sendPush } from "../push/send.ts";
 import { fail, ok, type Result } from "../result.ts";
+import { historyRetentionMs, systemRetentionMs } from "../retention.ts";
 import {
 	getMember,
 	getOrganization,
@@ -44,6 +45,7 @@ import {
 } from "./accounts.ts";
 import { drainPushQueue, enqueueTest, TEST_ALERT_ID, type PushSender } from "./notify.ts";
 import { exportData } from "./export.ts";
+import { ensurePurgeJob, PURGE_EVERY_MS, runPurgeJob } from "./purge.ts";
 import {
 	archiveSchedule,
 	dueJobs,
@@ -60,7 +62,6 @@ import {
 	canSeeScope,
 	changesSince,
 	markAudienceChanged,
-	pruneChangeLog,
 	recordChange,
 	snapshot,
 	type StoredChange,
@@ -214,7 +215,6 @@ export class OrgDO extends DurableObject<Env> {
 		}
 		this.broadcast(result.value.changes);
 		const lastVersion = result.value.changes.at(-1)!.change.version;
-		if (lastVersion % 100 === 0) pruneChangeLog(this.sql, now);
 		const task = loadTask(this.sql, result.value.taskId);
 		await this.armAlarm(now);
 		return {
@@ -235,9 +235,17 @@ export class OrgDO extends DurableObject<Env> {
 	/** Runs due jobs, records the resulting task changes, sends queued pushes and re-arms the alarm. */
 	async runScheduled(now: number): Promise<void> {
 		if (!getOrganization(this.sql)) return;
+		// Brings the daily purge back if its job was ever lost (8.3).
+		ensurePurgeJob(this.sql, now + PURGE_EVERY_MS);
 		const jobs = this.jobContext(now);
+		const retention = {
+			historyMs: historyRetentionMs(this.env),
+			systemMs: systemRetentionMs(this.env),
+		};
 		for (const job of dueJobs(this.sql, now, JOBS_PER_RUN)) {
-			this.ctx.storage.transactionSync(() => runJob(jobs, job.id));
+			this.ctx.storage.transactionSync(() =>
+				job.kind === "purge" ? runPurgeJob(this.sql, job.id, now, retention) : runJob(jobs, job.id),
+			);
 		}
 		if (jobs.changed.size) {
 			const changes = this.ctx.storage.transactionSync(() =>
@@ -396,6 +404,7 @@ export class OrgDO extends DurableObject<Env> {
 				tokenHash: device.tokenHash,
 				now,
 			});
+			ensurePurgeJob(this.sql, now + PURGE_EVERY_MS);
 		});
 		return ok({ token: device.token });
 	}
