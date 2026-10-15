@@ -291,7 +291,8 @@ flowchart LR
 A Durable Object has only **one alarm** at a time, so the Organization DO keeps its own job table:
 
 - `SCHEDULED_JOB` rows (8.1) hold every pending step: advance reminder, due reminder, second reminder, missed check, alert re-send (NFR-5), and the daily job that creates Occurrences ahead of time (FR-25).
-- The alarm is always set to the earliest pending `fire_at`. Inserting, deleting or running a job resets it.
+- The alarm is always set to the earliest pending `fire_at`, but never in the past: an overdue job runs straight away. Inserting, deleting or running a job resets it.
+- **Self-healing:** each time the Organization DO starts, if jobs are pending but no alarm is set, it re-arms the alarm, so a lost alarm delays jobs instead of stopping them.
 - **Alarms may run more than once.** Each job is marked done in the same transaction as its effect, and every step re-checks the Occurrence's status first, so a repeated run never sends a duplicate or marks a done Occurrence as missed.
 - Archiving a Task, deleting a Team or editing a schedule deletes the affected pending jobs (FR-20, FR-23).
 - **CPU budget.** Each push needs ECDH, HKDF, AES-GCM and an ES256 signature. The VAPID JWT is reused per push-service origin for up to 12 hours. Jobs don't send pushes themselves: they add them to a `push_queue` table in the same transaction as their effect. Each alarm run sends at most **40 queued pushes** (Phase 0 measured about 0.5–0.8 ms CPU per push; the cap keeps runs under the free plan's per-invocation subrequest limit) and sets the alarm to fire again immediately if more are waiting.
