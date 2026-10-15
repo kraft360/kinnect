@@ -80,6 +80,55 @@ describe("migrate", () => {
 		});
 	});
 
+	it("rebuilds scheduled_job for purge jobs, keeping every job (migration 7)", async () => {
+		await runInDurableObject(freshOrg(), (_, state) => {
+			const sql = state.storage.sql;
+			// Start again from an empty database at version 6.
+			// Newest first, so no table is dropped while another still refers to it.
+			for (const name of tables(state.storage)
+				.filter((t) => !/^(_cf|sqlite)/.test(t))
+				.reverse())
+				sql.exec(`DROP TABLE ${name}`);
+			expect(migrate(state.storage, orgMigrations.slice(0, 6))).toBe(6);
+			sql.exec("INSERT INTO organization (id, name, created_at) VALUES ('org', 'Family', 0)");
+			sql.exec(
+				"INSERT INTO member (id, username, display_name, role, created_at) VALUES ('m', 'm', 'M', 'owner', 0)",
+			);
+			sql.exec(
+				"INSERT INTO task (id, title, created_by, created_at, updated_at) VALUES ('t', 'T', 'm', 0, 0)",
+			);
+			sql.exec("INSERT INTO occurrence (id, task_id, due_at) VALUES ('o', 't', 100)");
+			sql.exec(
+				"INSERT INTO scheduled_job (id, occurrence_id, kind, fire_at, done_at) VALUES ('j1', 'o', 'due', 100, NULL), ('j2', NULL, 'materialize', 50, 60)",
+			);
+			expect(() =>
+				sql.exec("INSERT INTO scheduled_job (id, kind, fire_at) VALUES ('p', 'purge', 0)"),
+			).toThrow(/CHECK/);
+
+			expect(migrate(state.storage, orgMigrations)).toBe(7);
+			const jobs = sql
+				.exec("SELECT id, occurrence_id, kind, fire_at, done_at FROM scheduled_job ORDER BY kind")
+				.toArray();
+			expect(jobs.filter((j) => j.kind !== "purge")).toEqual([
+				{ id: "j1", occurrence_id: "o", kind: "due", fire_at: 100, done_at: null },
+				{ id: "j2", occurrence_id: null, kind: "materialize", fire_at: 50, done_at: 60 },
+			]);
+			// The first purge is due straight away.
+			expect(jobs.filter((j) => j.kind === "purge")).toMatchObject([{ fire_at: 0, done_at: null }]);
+			expect(
+				sql
+					.exec<{ name: string }>(
+						"SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'scheduled_job' AND name NOT LIKE 'sqlite_%' ORDER BY name",
+					)
+					.toArray()
+					.map((r) => r.name),
+			).toEqual(["scheduled_job_by_occurrence", "scheduled_job_pending"]);
+			// Still cascades from occurrences.
+			sql.exec("DELETE FROM occurrence WHERE id = 'o'");
+			expect(sql.exec("SELECT id FROM scheduled_job WHERE id = 'j1'").toArray()).toEqual([]);
+		});
+	});
+
 	it("enforces foreign keys", async () => {
 		await runInDurableObject(freshOrg(), (_, state) => {
 			expect(() =>

@@ -146,7 +146,7 @@ Notification wording (all generic):
 |---|---|
 | FR-50 | Live updates use a WebSocket that is open only while the app is in the foreground. |
 | FR-51 | Edits are applied optimistically on the device, confirmed by the server, then broadcast to other connected devices. Target: under 1 second. |
-| FR-52 | On reconnect the client sends its last known version and receives all changes since. If that version is older than the server's change log (8.2), the client receives a full snapshot instead. |
+| FR-52 | On reconnect the client sends its last known version and receives all changes since. If that version is older than the server's change log (8.1), or more changes were made since than there are Tasks, the client receives a full snapshot instead: each change carries a whole Task, so past that point a snapshot is smaller. |
 | FR-53 | Edits made offline are queued on the device and sent on reconnect. |
 | FR-54 | **Conflict rules.** Task and Sub-task fields: the last write received by the server wins, per field. Sub-task add, tick, untick and reorder are applied as individual operations, so concurrent changes to different items all survive. Completing an Occurrence: the first Done wins; later Done actions are recorded in history but don't change who completed it. |
 | FR-55 | **Rejected edits.** The server rejects an edit the member is no longer allowed to make (e.g. removed from the Team, Task deleted). The device rolls the edit back and shows a short message saying what was not saved. |
@@ -197,6 +197,7 @@ Notification wording (all generic):
 | FR-90 | **Deactivating a member.** An admin can deactivate any member except the owner. All their devices are revoked, they are removed from all Teams and watcher lists, and their tasks become unassigned (with the same preview as FR-84). Their history is kept under their display name. A deactivated member can be reactivated with a new "add device" link; their username stays reserved. |
 | FR-91 | **Ownership transfer.** The owner can transfer ownership to another admin and becomes an ordinary admin. The owner must transfer ownership before they can be deactivated. |
 | FR-92 | **Export.** An admin can download all of the Organization's data (tasks, occurrences, history, members, Teams) as a JSON file. Session tokens and push subscriptions are excluded. |
+| FR-93 | **Retention.** Finished history older than `PURGE_HISTORY_DAYS` (default 90) and internal scheduler and sync rows older than `PURGE_SYSTEM_DAYS` (default 10) are deleted automatically (8.3). Tasks (including archived ones), members, Teams, invites and devices are never deleted by it. |
 
 ## 5. Non-functional requirements
 
@@ -497,10 +498,10 @@ Notes:
 - `OCCURRENCE_TICK` records optional sub-task ticks within one Occurrence, so each Occurrence's checklist starts fresh.
 - `SUBTASK.deleted_at` implements "Clear completed" and Sub-task removal as a soft delete (FR-17, FR-23).
 - Occurrence `status`: `open`, `done`, `done_late`, `missed`.
-- `SCHEDULED_JOB.kind`: `advance`, `due`, `second`, `missed`, `resend`, `materialize` (the daily job, with no `occurrence_id`).
+- `SCHEDULED_JOB.kind`: `advance`, `due`, `second`, `missed`, `resend`, `materialize` (extends every task's window), `purge` (the daily purge, 8.3). The last two have no `occurrence_id`.
 - `MEMBER.role`: `owner`, `admin`, `member`.
 - `INVITE.kind`: `invite` (first device) or `add_device` (additional or replacement device). Both work the same way.
-- `CHANGE_LOG` keeps the last 30 days of changes; older rows are deleted and clients that are further behind get a snapshot (FR-52).
+- `CHANGE_LOG` keeps the last `PURGE_SYSTEM_DAYS` of changes (8.3); clients that are further behind get a snapshot (FR-52).
 
 ### 8.2 Directory Durable Object
 
@@ -511,6 +512,22 @@ Notes:
 | `rate_limit` | `key` (IP or `global`), `window_start`, `count` |
 
 The Organization DO adds a `join_code` row when it issues an invite and deletes it when the invite is used, revoked or expired.
+
+### 8.3 Purge
+
+A recurring `purge` job in each Organization DO deletes old rows once a day (FR-93). Two deployment-wide settings in `wrangler.jsonc` set the windows:
+
+| Setting | Default | Minimum | Table | Deleted when |
+|---|---|---|---|---|
+| `PURGE_HISTORY_DAYS` | 90 | 7 (the app shows 7 days of history) | `OCCURRENCE`, with its `ALERT`, `OCCURRENCE_TICK` and `SCHEDULED_JOB` rows | Not `open`, and due before the window |
+| | | | `SUBTASK` | Soft-deleted before the window, and in no remaining `OCCURRENCE_TICK` |
+| `PURGE_SYSTEM_DAYS` | 10 | 1 | `SCHEDULED_JOB` | Ran (`done_at`) before the window |
+| | | | `CHANGE_LOG` | Logged before the window, oldest first, so the versions left stay consecutive |
+
+- **Never purged:** Tasks (including archived ones), members, Teams, invites, devices, and the Directory's `operator_link`. Invites and operator links are the audit trail of who was invited and when the owner was recovered.
+- **Batches:** each run deletes at most 500 rows per table. If any table had more, the next `purge` job is due straight away; otherwise a day later. Each run logs how many rows it deleted from each table.
+- **Self-healing:** every alarm run adds a `purge` job if none is pending, so purging can't silently stop.
+- **An invalid setting** (not a whole number, or below the minimum) is logged and the default is used.
 
 ## 9. Delivery phases
 

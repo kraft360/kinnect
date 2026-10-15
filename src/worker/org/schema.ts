@@ -206,4 +206,25 @@ export const orgMigrations: readonly string[] = [
 	-- since the log is filtered by current access and misses what they gained or lost (FR-83, FR-84).
 	ALTER TABLE member ADD COLUMN audience_version INTEGER NOT NULL DEFAULT 0;
 	`,
+
+	/* 7 */ `
+	-- Daily purge (8.3) runs as a "purge" job. SQLite can't change a CHECK constraint in place,
+	-- so scheduled_job is rebuilt (copy, drop, rename) with 'purge' added. Nothing refers to it.
+	CREATE TABLE scheduled_job_new (
+		id TEXT PRIMARY KEY,
+		occurrence_id TEXT REFERENCES occurrence(id) ON DELETE CASCADE,
+		kind TEXT NOT NULL CHECK (kind IN ('advance', 'due', 'second', 'missed', 'resend', 'materialize', 'purge')),
+		fire_at INTEGER NOT NULL,
+		done_at INTEGER
+	);
+	INSERT INTO scheduled_job_new (id, occurrence_id, kind, fire_at, done_at)
+		SELECT id, occurrence_id, kind, fire_at, done_at FROM scheduled_job;
+	DROP TABLE scheduled_job;
+	ALTER TABLE scheduled_job_new RENAME TO scheduled_job;
+	CREATE INDEX scheduled_job_pending ON scheduled_job (done_at, fire_at);
+	CREATE INDEX scheduled_job_by_occurrence ON scheduled_job (occurrence_id);
+	-- An existing family's first purge is due straight away (fire_at 0), on its next alarm.
+	INSERT INTO scheduled_job (id, kind, fire_at)
+		SELECT lower(hex(randomblob(16))), 'purge', 0 FROM organization;
+	`,
 ];

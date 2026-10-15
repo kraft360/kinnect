@@ -153,6 +153,27 @@ describe("reconnecting (FR-52)", () => {
 		expect((await sync(dad, 1)).first.type).toBe("snapshot");
 	});
 
+	it("gets a snapshot once it missed more changes than there are tasks", async () => {
+		const { dad, home } = await family();
+		const ids = [uuid(), uuid()];
+		for (const id of ids) await op(dad, { type: "task.create", id, title: id, teamId: home });
+		const { live, first } = await sync(dad);
+		live.ws.close();
+
+		// Two changes for two tasks: still incremental.
+		for (const id of ids)
+			await op(dad, { type: "task.update", id, changes: { title: `${id} (edited)` } });
+		expect((await sync(dad, first.version)).first.type).toBe("changes");
+
+		// A third change for the same two tasks: a snapshot is smaller.
+		await op(dad, { type: "task.update", id: ids[0], changes: { title: "Edited again" } });
+		const reply = (await sync(dad, first.version)).first;
+		expect(reply.type).toBe("snapshot");
+		expect(reply.tasks.map((t: { title: string }) => t.title).sort()).toEqual(
+			["Edited again", `${ids[1]} (edited)`].sort(),
+		);
+	});
+
 	describe("gets a snapshot when what it can see changed while it was away (FR-83, FR-84)", () => {
 		async function away() {
 			const f = await family();
